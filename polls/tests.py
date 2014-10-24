@@ -80,6 +80,42 @@ class QuestionIndexDetailTests(TestCase):
         response = self.client.get(reverse('polls:detail', args=(past_question.id,)))
         self.assertContains(response, past_question.question_text, status_code=200)
 
+class QuestionResultTests(TestCase):
+    def test_result_view_with_no_question(self):
+        response = self.client.get(reverse('polls:results', args=(555,)))
+        self.assertEqual(response.status_code, 404)
+
+    def test_result_view_with_a_question(self):
+        question = create_question(question_text="My question.", days=-5)
+        choice1 = question.choice_set.create(choice_text="Choice one.", votes=2)
+        choice2 = question.choice_set.create(choice_text="Choice two.", votes=1)
+        response = self.client.get(reverse('polls:results', args=(question.id,)))
+        self.assertContains(response, question.question_text, status_code=200)
+        self.assertContains(response, choice1.choice_text)
+        self.assertContains(response, choice2.choice_text)
+
+class QuestionVoteTests(TestCase):
+    def test_vote_view_with_no_question(self):
+        response = self.client.post(reverse('polls:vote', args=(555, )))
+        self.assertEqual(response.status_code, 404)
+
+    def test_vote_view_with_inexist_choice(self):
+        question = create_question(question_text="My question.", days=-5)
+        response = self.client.post(reverse('polls:vote', args=(question.id,)), {'choice': 444})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "You didn&#39;t select a choice.", status_code=200)
+
+    def test_vote_view_with_exist_choice(self):
+        question = create_question(question_text="My question.", days=-5)
+        choice1 = question.choice_set.create(choice_text="Choice one.", votes=2)
+        choice2 = question.choice_set.create(choice_text="Choice two.", votes=1)
+        response = self.client.post(reverse('polls:vote', args=(question.id,)), {'choice': choice1.id})
+        self.assertRedirects(response, reverse('polls:results', args=(question.id,)))
+        #check votes number
+        added_choice1 = question.choice_set.get(pk=choice1.id)
+        self.assertEqual(added_choice1.votes, 3)
+
+
 
 
 
